@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id
+  email     String   @unique
+  notes     Note[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Note {
+  id        String     @id @default(uuid())
+  title     String
+  content   String?
+  userId    String     @map("user_id")
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  linkedFrom NoteLink[] @relation("SourceNote")
+  linkedTo   NoteLink[] @relation("TargetNote")
+
+  @@index([userId])
+  @@map("notes")
+}
+
+model NoteLink {
+  id            String   @id @default(uuid())
+  sourceNoteId  String   @map("source_note_id")
+  targetNoteId  String   @map("target_note_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  
+  sourceNote    Note     @relation("SourceNote", fields: [sourceNoteId], references: [id], onDelete: Cascade)
+  targetNote    Note     @relation("TargetNote", fields: [targetNoteId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceNoteId, targetNoteId])
+  @@index([sourceNoteId])
+  @@index([targetNoteId])
+  @@map("note_links")
+} 
