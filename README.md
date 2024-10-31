@@ -82,7 +82,7 @@ Neura is a powerful note-taking application that combines the simplicity of mark
 1. Clone the repository
 
 ```bash
-git clone https://github.com/Saunak10/neura.git
+git clone https://github.com/Saunakghosh10/neura
 ```
 
 2. Install dependencies
@@ -146,4 +146,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <!-- Your Name - [@yourtwitter](https://twitter.com/yourtwitter) - email@example.com -->
 
-Project Link: [https://github.com/Saunak10/neura](https://github.com/Saunak10/neura)
+Project Link: [https://github.com/Saunakghosh10/neura](https://github.com/Saunakghosh10/neura)
