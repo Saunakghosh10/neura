@@ -1,4 +1,5 @@
 # Neura - Your Digital Mind 🧠
+![Screenshot 2024-11-01 014414](https://github.com/user-attachments/assets/74124cc3-4a7e-41fe-8ea3-e047efee0870)
 
 <div align="center">
   <h3>A Modern Note-Taking App with Bi-directional Linking and Graph Visualization</h3>
