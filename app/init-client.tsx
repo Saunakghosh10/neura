@@ -13,8 +13,7 @@ export function InitClient() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ userId })
+        }
       }).catch(console.error)
     }
   }, [isLoaded, userId])

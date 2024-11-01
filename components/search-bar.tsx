@@ -30,7 +30,7 @@ export function SearchBar({ onFileSelect }: SearchBarProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const { items, setActiveItemId } = useFileSystem()
+  const { items } = useFileSystem()
   const debouncedQuery = useDebounce(query, 200)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -52,53 +52,69 @@ export function SearchBar({ onFileSelect }: SearchBarProps) {
       return
     }
 
-    const searchResults = items
-      .filter(item => item.type === 'file')
-      .map(item => {
-        const matches: { text: string, index: number }[] = []
-        const regex = new RegExp(debouncedQuery, 'gi')
-        let match
+    try {
+      // Escape special characters in the search query
+      const escapedQuery = debouncedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      
+      const searchResults = items
+        .filter(item => item.type === 'file')
+        .map(item => {
+          const matches: { text: string, index: number }[] = []
+          
+          try {
+            const regex = new RegExp(escapedQuery, 'gi')
+            let match
 
-        // Search in filename
-        if (item.name.toLowerCase().includes(debouncedQuery.toLowerCase())) {
-          matches.push({
-            text: item.name,
-            index: -1 // Special index for filename matches
-          })
-        }
+            // Search in filename (case-insensitive)
+            const normalizedName = item.name.toLowerCase()
+            const normalizedQuery = debouncedQuery.toLowerCase()
+            if (normalizedName.includes(normalizedQuery)) {
+              matches.push({
+                text: item.name,
+                index: -1 // Special index for filename matches
+              })
+            }
 
-        // Search in content
-        while ((match = regex.exec(item.content || '')) !== null) {
-          const start = Math.max(0, match.index - 40)
-          const end = Math.min((item.content || '').length, match.index + 40)
-          matches.push({
-            text: '...' + (item.content || '').slice(start, end) + '...',
-            index: match.index
-          })
-        }
+            // Search in content
+            const content = item.content || ''
+            while ((match = regex.exec(content)) !== null) {
+              const start = Math.max(0, match.index - 40)
+              const end = Math.min(content.length, match.index + 40)
+              matches.push({
+                text: '...' + content.slice(start, end) + '...',
+                index: match.index
+              })
+            }
+          } catch (error) {
+            console.error('Regex error:', error)
+          }
 
-        return {
-          id: item.id,
-          name: item.name,
-          content: item.content || '',
-          matches
-        }
-      })
-      .filter(result => result.matches.length > 0)
+          return {
+            id: item.id,
+            name: item.name,
+            content: item.content || '',
+            matches
+          }
+        })
+        .filter(result => result.matches.length > 0)
 
-    setResults(searchResults)
-    setSelectedIndex(0)
+      setResults(searchResults)
+      setSelectedIndex(0)
+    } catch (error) {
+      console.error('Search error:', error)
+      setResults([])
+    }
   }, [debouncedQuery, items])
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setSelectedIndex(i => (i + 1) % results.length)
+        setSelectedIndex(i => (i + 1) % Math.max(1, results.length))
         break
       case 'ArrowUp':
         e.preventDefault()
-        setSelectedIndex(i => (i - 1 + results.length) % results.length)
+        setSelectedIndex(i => (i - 1 + results.length) % Math.max(1, results.length))
         break
       case 'Enter':
         e.preventDefault()
@@ -187,7 +203,7 @@ export function SearchBar({ onFileSelect }: SearchBarProps) {
                             ) : (
                               <div dangerouslySetInnerHTML={{
                                 __html: match.text.replace(
-                                  new RegExp(debouncedQuery, 'gi'),
+                                  new RegExp(query, 'gi'),
                                   (match) => `<mark class="bg-primary/20 text-primary rounded px-1">${match}</mark>`
                                 )
                               }} />
@@ -198,14 +214,9 @@ export function SearchBar({ onFileSelect }: SearchBarProps) {
                     ))}
                   </motion.div>
                 ) : query ? (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="p-4 text-center text-muted-foreground"
-                  >
-                    No results found for &quot;{query}&quot;
-                  </motion.div>
+                  <div className="p-4 text-center text-muted-foreground">
+                    No results found
+                  </div>
                 ) : null}
               </AnimatePresence>
             </ScrollArea>

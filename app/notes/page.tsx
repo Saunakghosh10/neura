@@ -13,14 +13,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SearchBar } from '@/components/search-bar'
 
 export default function NotesPage() {
-  const { items, activeItemId, setActiveItemId, updateNote, createItem, updateItem, deleteItem } = useFileSystem();
+  const { items, activeItemId, setActiveItemId, updateNote, createItem, updateItem, deleteItem, fetchNotes } = useFileSystem();
   const [isLoading, setIsLoading] = useState(true);
   const { isLoaded, userId } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('editor');
   
-  const activeFile = items.find(item => item.id === activeItemId && item.type === 'file');
-
   useEffect(() => {
     if (isLoaded && !userId) {
       router.push('/sign-in');
@@ -29,6 +27,14 @@ export default function NotesPage() {
     const timer = setTimeout(() => setIsLoading(false), 100);
     return () => clearTimeout(timer);
   }, [isLoaded, userId, router]);
+
+  useEffect(() => {
+    if (userId) {
+      fetchNotes().catch(console.error);
+    }
+  }, [userId, fetchNotes]);
+
+  const activeFile = items.find(item => item.id === activeItemId && item.type === 'file');
 
   // Handle file selection
   const handleFileSelect = (fileId: string) => {
@@ -46,19 +52,6 @@ export default function NotesPage() {
       });
     } catch (error) {
       console.error('Failed to update note:', error);
-    }
-  };
-
-  const handleNoteSave = async (content: string) => {
-    if (!activeFile) return;
-    
-    try {
-      await updateNote(activeFile.id, {
-        title: activeFile.name.replace('.md', ''),
-        content: content
-      });
-    } catch (error) {
-      console.error('Failed to save note:', error);
     }
   };
 
@@ -167,7 +160,6 @@ export default function NotesPage() {
                     key={activeFile.id}
                     initialValue={activeFile.content || ''}
                     onChange={handleNoteChange}
-                    onSave={handleNoteSave}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">

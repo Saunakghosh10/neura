@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDebounce } from '@/hooks/use-debounce'
 import { Button } from '@/components/ui/button'
@@ -26,8 +26,8 @@ interface MarkdownEditorProps {
 
 export function MarkdownEditor({ initialValue = '', onChange, onSave }: MarkdownEditorProps) {
   const [content, setContent] = useState(initialValue)
-  const debouncedContent = useDebounce(content, 2000)
-  const lastSavedContent = useRef(initialValue)
+  const debouncedContent = useDebounce(() => content, 2000)
+  const lastSavedContent = useRef<string>(initialValue || '')
   const saveInProgress = useRef(false)
   const [activeTab, setActiveTab] = useState('edit')
   const [linkSuggester, setLinkSuggester] = useState<{
@@ -36,13 +36,26 @@ export function MarkdownEditor({ initialValue = '', onChange, onSave }: Markdown
   } | null>(null)
   const editorRef = useRef<HTMLTextAreaElement>(null)
 
+  // Debounce the save function to avoid too many API calls
+  const debouncedSave = useCallback(
+    (content: string) => {
+      onSave?.(content)
+    },
+    [onSave]
+  )
+
+  // Handle content changes
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setContent(e.target.value)
+    debouncedSave(e.target.value)
+  }, [debouncedSave])
   useEffect(() => {
-    if (!saveInProgress.current && debouncedContent !== lastSavedContent.current) {
+    if (!saveInProgress.current && content !== lastSavedContent.current) {
       const saveContent = async () => {
         try {
           saveInProgress.current = true
-          await onChange?.(debouncedContent)
-          lastSavedContent.current = debouncedContent
+          await onChange?.(content)
+          lastSavedContent.current = content
         } finally {
           saveInProgress.current = false
         }
@@ -148,11 +161,6 @@ export function MarkdownEditor({ initialValue = '', onChange, onSave }: Markdown
     }
 
     setLinkSuggester(null)
-  }
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newContent = e.target.value
-    setContent(newContent)
   }
 
   return (

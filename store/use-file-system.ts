@@ -27,7 +27,7 @@ interface FileSystemState {
   updateItem: (id: string, updates: Partial<FileSystemItem>) => Promise<void>
   deleteItem: (id: string) => Promise<void>
   moveItem: (id: string, newParentId: string | null) => Promise<void>
-  updateNote: (id: string, data: { title: string; content: string }) => Promise<void>
+  updateNote: (noteId: string, data: { title: string; content: string }) => Promise<void>
 }
 
 export const useFileSystem = create<FileSystemState>((set, get) => ({
@@ -39,29 +39,36 @@ export const useFileSystem = create<FileSystemState>((set, get) => ({
   setActiveItemId: (id) => set({ activeItemId: id }),
 
   fetchNotes: async () => {
-    set({ loading: true })
+    set({ loading: true, error: null })
     try {
       const res = await fetch('/api/notes')
-      if (!res.ok) throw new Error('Failed to fetch notes')
-      const notes: Note[] = await res.json()
+      if (!res.ok) {
+        const error = await res.json()
+        throw new Error(error.message || 'Failed to fetch notes')
+      }
+      const notes = await res.json()
       set({ 
-        items: notes.map((note) => ({
+        items: notes.map((note: Note) => ({
           id: note.id,
           type: 'file' as const,
-          name: `${note.title}.md`,
+          name: note.title,
           title: note.title,
+          content: note.content,
           parentId: null,
-          content: note.content || '',
           createdAt: note.createdAt,
           updatedAt: note.updatedAt,
-          linkedFrom: note.linkedFrom.map((link: { targetNote: { id: string } }) => link.targetNote.id),
-          linkedTo: note.linkedTo.map((link: { sourceNote: { id: string } }) => link.sourceNote.id)
-        })), 
-        loading: false 
+          linkedFrom: note.linkedFrom?.map((link: any) => link.sourceNote.id) || [],
+          linkedTo: note.linkedTo?.map((link: any) => link.targetNote.id) || []
+        })),
+        loading: false,
+        error: null
       })
     } catch (error) {
-      console.error('Failed to fetch notes:', error)
-      set({ error: 'Failed to fetch notes', loading: false })
+      console.error('Error fetching notes:', error)
+      set({ 
+        error: error instanceof Error ? error.message : 'Failed to fetch notes',
+        loading: false 
+      })
     }
   },
 
@@ -104,51 +111,58 @@ export const useFileSystem = create<FileSystemState>((set, get) => ({
     }
   },
 
-  updateItem: async (id, updates) => {
-    set({ loading: true })
-    try {
-      const res = await fetch(`/api/notes/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: updates.name?.replace('.md', ''),
-          content: updates.content
-        })
-      })
-      if (!res.ok) throw new Error('Failed to update note')
-      const note = await res.json()
-      set(state => ({
-        items: state.items.map(item =>
-          item.id === id ? {
-            ...item,
-            name: `${note.title}.md`,
-            content: note.content
-          } : item
-        ),
-        loading: false
-      }))
-    } catch (error) {
-      console.error('Failed to update note:', error)
-      set({ error: 'Failed to update note', loading: false })
-    }
-  },
+  // ... other code remains the same ...
 
-  deleteItem: async (id) => {
-    set({ loading: true })
-    try {
-      const res = await fetch(`/api/notes/${id}`, {
-        method: 'DELETE'
+updateItem: async (id, updates) => {
+  set({ loading: true })
+  try {
+    const res = await fetch(`/api/notes/${id}`, {  // This will now match [noteId]
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: updates.name?.replace('.md', ''),
+        content: updates.content
       })
-      if (!res.ok) throw new Error('Failed to delete note')
-      set(state => ({
-        items: state.items.filter(item => item.id !== id),
-        loading: false
-      }))
-    } catch (error) {
-      console.error('Failed to delete note:', error)
-      set({ error: 'Failed to delete note', loading: false })
-    }
-  },
+    })
+    if (!res.ok) throw new Error('Failed to update note')
+    const note = await res.json()
+    set(state => ({
+      items: state.items.map(item =>
+        item.id === id ? {
+          ...item,
+          name: `${note.title}.md`,
+          content: note.content,
+          updatedAt: note.updatedAt,
+          linkedTo: note.linkedTo?.map((link: any) => link.targetNote.id) || [],
+          linkedFrom: note.linkedFrom?.map((link: any) => link.sourceNote.id) || []
+        } : item
+      ),
+      loading: false
+    }))
+  } catch (error) {
+    console.error('Failed to update note:', error)
+    set({ error: 'Failed to update note', loading: false })
+  }
+},
+
+deleteItem: async (id) => {
+  set({ loading: true })
+  try {
+    const res = await fetch(`/api/notes/${id}`, {  // This will now match [noteId]
+      method: 'DELETE'
+    })
+    if (!res.ok) throw new Error('Failed to delete note')
+    set(state => ({
+      items: state.items.filter(item => item.id !== id),
+      loading: false
+    }))
+  } catch (error) {
+    console.error('Failed to delete note:', error)
+    set({ error: 'Failed to delete note', loading: false })
+  }
+},
+
+// ... rest of the code remains the same ...
 
   moveItem: async (id, newParentId) => {
     set(state => ({
@@ -158,49 +172,41 @@ export const useFileSystem = create<FileSystemState>((set, get) => ({
     }))
   },
 
-  updateNote: async (id: string, data: { title: string; content: string }) => {
-    set({ loading: true, error: null });
+  updateNote: async (noteId: string, data: { title: string; content: string }) => {
     try {
-      const linkRegex = /\[\[(.*?)\]\]/g;
-      const links = Array.from(data.content.matchAll(linkRegex)).map(match => match[1]);
-      
-      const res = await fetch(`/api/notes/${id}`, {
+      const res = await fetch(`/api/notes/${noteId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...data,
-          linkedTo: links
-        }),
+        body: JSON.stringify(data),
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Failed to update note');
+        throw new Error('Failed to update note');
       }
-      
+
       const updatedNote = await res.json();
       
       set(state => ({
         items: state.items.map(item =>
-          item.id === id ? {
+          item.id === noteId ? {
             ...item,
-            ...updatedNote,
-            linkedTo: updatedNote.linkedTo?.map((link: { sourceNote: { id: string } }) => link.sourceNote.id) || [],
-            linkedFrom: updatedNote.linkedFrom?.map((link: { targetNote: { id: string } }) => link.targetNote.id) || []
+            content: updatedNote.content,
+            title: updatedNote.title,
+            name: updatedNote.title,
+            updatedAt: updatedNote.updatedAt,
+            linkedTo: updatedNote.linkedTo?.map((link: { targetNote: { id: string } }) => link.targetNote.id) || [],
+            linkedFrom: updatedNote.linkedFrom?.map((link: { sourceNote: { id: string } }) => link.sourceNote.id) || []
           } : item
         ),
-        loading: false,
         error: null
       }));
     } catch (error) {
       console.error('Failed to update note:', error);
       set({ 
-        error: error instanceof Error ? error.message : 'Failed to update note', 
-        loading: false 
+        error: error instanceof Error ? error.message : 'Failed to update note',
       });
-      throw error;
     }
   },
 })) 

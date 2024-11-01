@@ -18,32 +18,31 @@ model User {
 }
 
 model Note {
-  id        String     @id @default(uuid())
+  id        String     @id @default(cuid())
   title     String
   content   String?
-  userId    String     @map("user_id")
-  createdAt DateTime   @default(now()) @map("created_at")
-  updatedAt DateTime   @updatedAt @map("updated_at")
-  
+  userId    String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  // Add the relation to User
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  linkedFrom NoteLink[] @relation("SourceNote")
-  linkedTo   NoteLink[] @relation("TargetNote")
+  
+  // Links
+  linkedTo   NoteLink[] @relation("SourceNotes")
+  linkedFrom NoteLink[] @relation("TargetNotes")
 
   @@index([userId])
-  @@map("notes")
 }
 
 model NoteLink {
-  id            String   @id @default(uuid())
-  sourceNoteId  String   @map("source_note_id")
-  targetNoteId  String   @map("target_note_id")
-  createdAt     DateTime @default(now()) @map("created_at")
-  
-  sourceNote    Note     @relation("SourceNote", fields: [sourceNoteId], references: [id], onDelete: Cascade)
-  targetNote    Note     @relation("TargetNote", fields: [targetNoteId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  sourceNote   Note     @relation("SourceNotes", fields: [sourceNoteId], references: [id], onDelete: Cascade)
+  sourceNoteId String
+  targetNote   Note     @relation("TargetNotes", fields: [targetNoteId], references: [id], onDelete: Cascade)
+  targetNoteId String
 
   @@unique([sourceNoteId, targetNoteId])
   @@index([sourceNoteId])
   @@index([targetNoteId])
-  @@map("note_links")
 } 
