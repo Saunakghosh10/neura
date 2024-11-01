@@ -3,7 +3,7 @@ import { Inter, Outfit } from 'next/font/google'
 import localFont from 'next/font/local'
 import './globals.css'
 import { InitClient } from './init-client'
-import { ErrorBoundary } from './error-boundary'
+import { Analytics } from '@vercel/analytics/react';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 const outfit = Outfit({ subsets: ['latin'], variable: '--font-outfit' })
@@ -16,7 +16,7 @@ const calSans = localFont({
 
 export const metadata = {
   title: 'Neura - Your Digital Mind',
-  description: 'A next-generation knowledge management app that helps you capture, connect, and expand your ideas with ease.',
+  description: 'A next-generation knowledge management app with bi-directional linking and graph visualization'
 }
 
 export default function RootLayout({
@@ -28,10 +28,9 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" className={`${inter.variable} ${outfit.variable} ${calSans.variable}`}>
         <body className={inter.className}>
-          <ErrorBoundary>
-            <InitClient />
-            {children}
-          </ErrorBoundary>
+          <InitClient />
+          {children}
+          <Analytics />
         </body>
       </html>
     </ClerkProvider>

@@ -3,14 +3,15 @@ import { authMiddleware } from "@clerk/nextjs/server";
 export default authMiddleware({
   publicRoutes: [
     "/",
-    "/sign-in",
-    "/sign-up",
+    "/api/webhook"
   ],
   
   ignoredRoutes: [
     "/((?!api|trpc))(_next.*|.+.[w]+$)",
     "/api/public"
   ],
+
+  debug: process.env.NODE_ENV === 'development',
 
   afterAuth(auth, req) {
     // Handle users who aren't authenticated
@@ -24,7 +25,7 @@ export default authMiddleware({
 
 export const config = {
   matcher: [
-    "/((?!.*\\..*|_next).*)",
+    "/((?!.+\\.[\\w]+$|_next).*)",
     "/",
     "/(api|trpc)(.*)"
   ],
