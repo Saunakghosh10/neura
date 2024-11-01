@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { auth, currentUser } from '@clerk/nextjs'
 import { prisma } from '@/lib/db'
 
 export async function POST() {
@@ -9,22 +9,34 @@ export async function POST() {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    // Check if user exists
-    let user = await prisma.user.findUnique({
-      where: { id: userId }
-    })
-
-    // If not, create them
+    // Get the current user from Clerk
+    const user = await currentUser()
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          id: userId,
-          email: 'placeholder@example.com' // You might want to get this from Clerk
-        }
-      })
+      return new NextResponse('User not found', { status: 404 })
     }
 
-    return NextResponse.json(user)
+    // Get the primary email address
+    const primaryEmail = user.emailAddresses.find(
+      email => email.id === user.primaryEmailAddressId
+    )?.emailAddress
+
+    if (!primaryEmail) {
+      return new NextResponse('Email not found', { status: 400 })
+    }
+
+    // Upsert the user (create if not exists, update if exists)
+    const dbUser = await prisma.user.upsert({
+      where: { id: userId },
+      update: {
+        email: primaryEmail,
+      },
+      create: {
+        id: userId,
+        email: primaryEmail,
+      },
+    })
+
+    return NextResponse.json(dbUser)
   } catch (error) {
     console.error('Failed to sync user:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
